@@ -11,13 +11,24 @@ import qualified Hasql.Decoders as Decoders
 import qualified Hasql.Statement as Statement
 import qualified Data.ByteString as ByteString
 import qualified Data.ByteString.Unsafe as ByteString
-import qualified Data.List.NonEmpty as NonEmpty
 import qualified Data.Vector.Generic as Vector
 import qualified TemplateHaskell.Compat.V0208 as Compat
+
+newtype TaggedSql (a :: [*]) (b :: [*]) = TaggedSql ByteString
+  deriving Show
+
+newtype UntaggedSql = UntaggedSql ByteString
+  deriving Show
 
 
 -- * Helpers
 -------------------------
+
+appTypeArray :: [Type] -> Type
+appTypeArray _types = foldl' (\r t -> AppT (AppT PromotedConsT t) r) PromotedNilT (reverse _types)
+
+appTypeList :: Exp -> [Type] -> Exp
+appTypeList = foldl' AppTypeE
 
 appList :: Exp -> [Exp] -> Exp
 appList = foldl' AppE 
@@ -202,3 +213,4 @@ applyArrayDimensionalityToDecoder levels =
   if levels > 0
     then AppE (AppE (VarE 'Decoders.dimension) (VarE 'Vector.replicateM)) . applyArrayDimensionalityToDecoder (pred levels)
     else AppE (VarE 'Decoders.element)
+

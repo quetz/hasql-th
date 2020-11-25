@@ -99,6 +99,7 @@ module Hasql.TH
   -}
   uncheckedSql,
   uncheckedSqlFile,
+  module Exports,
 )
 where
 
@@ -114,6 +115,7 @@ import qualified Data.Text.Encoding as Text
 import qualified PostgresqlSyntax.Ast as Ast
 import qualified PostgresqlSyntax.Parsing as Parsing
 
+import qualified Hasql.TH.Construction.Exp as Exports (TaggedSql, UntaggedSql)
 
 -- * Helpers
 -------------------------
@@ -173,6 +175,14 @@ Incorrect SQL:
 -}
 singletonStatement :: QuasiQuoter
 singletonStatement = expPreparableStmtAstParser (ExpExtraction.undecodedStatement Exp.singleRowResultDecoder)
+
+{-|
+@
+ :: `TaggedSql` [params] [returns] ByteString
+@
+-}
+taggedSql :: QuasiQuoter
+taggedSql = expPreparableStmtAstParser ExpExtraction.taggedSql
 
 {-|
 @

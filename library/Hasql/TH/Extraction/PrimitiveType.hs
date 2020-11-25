@@ -26,6 +26,7 @@ data PrimitiveType =
   JsonPrimitiveType |
   JsonbPrimitiveType
 
+simpleTypename :: SimpleTypename -> Either Text PrimitiveType
 simpleTypename = \ case
   GenericTypeSimpleTypename a -> genericType a
   NumericSimpleTypename a -> numeric a
@@ -34,12 +35,14 @@ simpleTypename = \ case
   ConstDatetimeSimpleTypename a -> constDatetime a
   ConstIntervalSimpleTypename a -> Right IntervalPrimitiveType
 
+genericType :: GenericType -> Either Text PrimitiveType
 genericType (GenericType a b c) = case b of
   Just _ -> Left "Type attributes are not supported"
   Nothing -> case c of
     Just _ -> Left "Type modifiers are not supported"
     Nothing -> ident a
 
+numeric :: Numeric -> Either Text PrimitiveType
 numeric = \ case
   IntNumeric -> Right Int4PrimitiveType
   IntegerNumeric -> Right Int4PrimitiveType
@@ -61,10 +64,13 @@ numeric = \ case
     Nothing -> Right NumericPrimitiveType
   BooleanNumeric -> Right BoolPrimitiveType
 
+bit :: Bit -> Either Text PrimitiveType
 bit _ = Left "Bit codec is not supported"
 
+character :: Character -> Either Text PrimitiveType
 character _ = Right TextPrimitiveType
 
+constDatetime :: ConstDatetime -> Either Text PrimitiveType
 constDatetime = \ case
   TimestampConstDatetime _ a -> if tz a then Right TimestamptzPrimitiveType else Right TimestampPrimitiveType
   TimeConstDatetime _ a -> if tz a then Right TimetzPrimitiveType else Right TimePrimitiveType
@@ -73,10 +79,12 @@ constDatetime = \ case
       Just a -> a
       Nothing -> False
 
+ident :: Ident -> Either Text PrimitiveType
 ident = \ case
   QuotedIdent a -> name a
   UnquotedIdent a -> name a
 
+name :: Text -> Either Text PrimitiveType
 name = \ case
   "bool" -> Right BoolPrimitiveType
   "int2" -> Right Int2PrimitiveType

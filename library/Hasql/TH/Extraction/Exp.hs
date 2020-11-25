@@ -4,6 +4,7 @@ import Hasql.TH.Prelude
 import Language.Haskell.TH
 import qualified Hasql.Encoders as Encoders
 import qualified Hasql.Decoders as Decoders
+import PostgreSQL.Binary.Data
 import qualified Hasql.TH.Extraction.InputTypeList as InputTypeList
 import qualified Hasql.TH.Extraction.OutputTypeList as OutputTypeList
 import qualified Hasql.TH.Extraction.PrimitiveType as PrimitiveType
@@ -11,6 +12,24 @@ import qualified Hasql.TH.Construction.Exp as Exp
 import qualified PostgresqlSyntax.Ast as Ast
 import qualified PostgresqlSyntax.Rendering as Rendering
 
+taggedSql :: Ast.PreparableStmt -> Either Text Exp
+taggedSql _ast = do
+  _input <- InputTypeList.preparableStmt _ast
+  _output <- OutputTypeList.preparableStmt _ast
+
+  _inputT <- traverse byTypenameTag _input
+  _outputT <- traverse byTypenameTag _output
+
+  Right $ SigE (Exp.appList (ConE 'Exp.TaggedSql) [ _sql ]) (AppT (AppT (ConT ''Exp.TaggedSql) (Exp.appTypeArray _inputT)) (Exp.appTypeArray _outputT))
+
+  where
+    _sql = (Exp.byteString . Rendering.toByteString . Rendering.preparableStmt) _ast
+
+untaggedSql :: Ast.PreparableStmt -> Either Text Exp
+untaggedSql _ast = 
+  Right $ Exp.appList (ConE 'Exp.UntaggedSql) [ _sql ]
+  where
+    _sql = (Exp.byteString . Rendering.toByteString . Rendering.preparableStmt) _ast
 
 undecodedStatement :: (Exp -> Exp) -> Ast.PreparableStmt -> Either Text Exp
 undecodedStatement _decoderProj _ast = let
@@ -63,6 +82,47 @@ byTypename unidimensional multidimensional (Ast.Typename a b c d) =
         Just (f, g) -> case f of
           Ast.BoundsTypenameArrayDimensions h -> multidimensional e c (length h) g
           Ast.ExplicitTypenameArrayDimensions _ -> multidimensional e c 1 g
+
+byTypenameTag :: Ast.Typename -> Either Text Type
+byTypenameTag (Ast.Typename a b c d) =
+  if a then
+    Left "SETOF is not supported"
+  else do
+    e <- PrimitiveType.simpleTypename b
+    case d of
+      Nothing -> (wrapMaybe c) <$> tagger e
+      Just (f, g) -> Left "Arrays are not supported"
+
+wrapMaybe :: Bool -> Type -> Type
+wrapMaybe flag _type = 
+  if flag
+    then
+      AppT (ConT ''Maybe) _type
+    else
+      _type
+
+tagger :: PrimitiveType.PrimitiveType -> Either Text Type
+tagger = Right . \ case
+  PrimitiveType.BoolPrimitiveType -> ConT ''Bool
+  PrimitiveType.Int2PrimitiveType -> ConT ''Int16
+  PrimitiveType.Int4PrimitiveType -> ConT ''Int32
+  PrimitiveType.Int8PrimitiveType -> ConT ''Int64
+  PrimitiveType.Float4PrimitiveType -> ConT ''Float
+  PrimitiveType.Float8PrimitiveType -> ConT ''Double
+  PrimitiveType.NumericPrimitiveType -> ConT ''Scientific
+  PrimitiveType.CharPrimitiveType -> ConT ''Char
+  PrimitiveType.TextPrimitiveType -> ConT ''Text
+  PrimitiveType.ByteaPrimitiveType -> ConT ''ByteString
+  PrimitiveType.DatePrimitiveType -> ConT ''Day
+  PrimitiveType.TimestampPrimitiveType -> ConT ''LocalTime
+  PrimitiveType.TimestamptzPrimitiveType -> ConT ''UTCTime
+  PrimitiveType.TimePrimitiveType -> ConT ''TimeOfDay
+  PrimitiveType.TimetzPrimitiveType -> AppT (AppT (TupleT 2) (ConT ''TimeOfDay)) (ConT ''TimeZone)
+  PrimitiveType.IntervalPrimitiveType -> ConT ''DiffTime
+  PrimitiveType.UuidPrimitiveType -> ConT ''UUID
+  PrimitiveType.InetPrimitiveType -> AppT (ConT ''NetAddr) (ConT ''IP)
+  PrimitiveType.JsonPrimitiveType -> ConT ''Value
+  PrimitiveType.JsonbPrimitiveType -> ConT ''Value
 
 valueEncoder :: PrimitiveType.PrimitiveType -> Either Text Exp
 valueEncoder = Right . VarE . \ case
