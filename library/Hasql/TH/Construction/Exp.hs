@@ -25,7 +25,7 @@ newtype UntaggedSql = UntaggedSql ByteString
 -------------------------
 
 appTypeArray :: [Type] -> Type
-appTypeArray _types = foldl' (\r t -> AppT (AppT PromotedConsT t) r) PromotedNilT (reverse _types)
+appTypeArray _types = foldr (\t r -> AppT (AppT PromotedConsT t) r) PromotedNilT _types
 
 appTypeList :: Exp -> [Type] -> Exp
 appTypeList = foldl' AppTypeE

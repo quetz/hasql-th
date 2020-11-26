@@ -46,7 +46,6 @@ library
     foldl >=1.4.5 && <2,
     hasql >=1.4 && <1.5,
     postgresql-syntax >=0.3 && <0.4,
-    pretty-simple,
     template-haskell >=2.8 && <3,
     template-haskell-compat-v0208 >=0.1.2 && <2,
     text >=1 && <2,
